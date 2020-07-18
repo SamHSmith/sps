@@ -1,0 +1,4 @@
+#!/bin/sh
+
+mkdir -p $SPU_INSTALL_DIR/usr/bin
+cp src/hello $SPU_INSTALL_DIR/usr/bin
