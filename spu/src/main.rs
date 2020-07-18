@@ -21,6 +21,7 @@ enum SubCommand {
     )]
     Package(Package),
     Build(Build),
+    Install(Install),
 }
 
 /*
@@ -38,6 +39,7 @@ struct Package {
     #[clap(short, long)]
     output: Option<String>,
 }
+
 /*
 Build a binary package from a source package
 */
@@ -51,6 +53,16 @@ struct Build {
     output: Option<String>,
 }
 
+/*
+Install a binary package
+*/
+#[derive(Clap)]
+struct Install {
+    /// SPS Binary Package to install
+    #[clap()]
+    pkg: String,
+}
+
 use std::path::Path;
 fn main() {
     let opts: Opts = Opts::parse();
@@ -59,7 +71,7 @@ fn main() {
             let srcfolder = std::fs::File::open(&b.src);
 
             if srcfolder.is_err() {
-                println!(
+                eprintln!(
                     "Error while reading {}, does it exist and do you have read permission?",
                     &b.src
                 );
@@ -99,21 +111,92 @@ fn main() {
                 build_src_package(&b.src, &b.output);
             }
         }
+        SubCommand::Install(b) => {
+            install_bin_pkg(&b.pkg);
+        }
+    }
+}
+
+fn install_bin_pkg(pkg: &str) {
+    if !pkg.ends_with(".sbp.tar.xz") {
+        eprintln!("Error, pkg must end in .sbp.tar.xz");
+        return;
+    }
+    let pkg_path = std::path::Path::new(pkg);
+    if !pkg_path.exists() {
+        eprintln!("Error, {} does not exist", pkg_path.to_str().unwrap());
+        return;
+    }
+
+    let output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "cd {} && tar -xf {}",
+            pkg_path.parent().unwrap().to_str().unwrap(),
+            pkg_path.file_name().unwrap().to_str().unwrap()
+        ))
+        .output()
+        .expect("failed to execute process");
+    use std::io::Write;
+    std::io::stderr().write_all(&output.stderr);
+    assert_eq!(0, output.stderr.len());
+
+    let pkg_path = std::fs::canonicalize(std::path::PathBuf::from(
+        pkg_path.to_str().unwrap().replace(".tar.xz", ""),
+    ))
+    .unwrap();
+
+    use glob::glob_with;
+    use glob::MatchOptions;
+
+    let mut files_to_install = Vec::new();
+
+    println!("{}", pkg_path.to_str().unwrap());
+
+    let system_dir_string = format!("{}/system", pkg_path.to_str().unwrap());
+    let system_dir_path = std::path::Path::new(&system_dir_string);
+
+    for entry in glob_with(&format!("{}/**/*", &system_dir_string), MatchOptions::new())
+        .expect("Failed to read glob pattern")
+    {
+        match entry {
+            Ok(path) => {
+                //this if is nececary so that we don't get a new path for each folder depth in a tree
+                if path.is_file() || (path.is_dir() && path.read_dir().unwrap().next().is_none()) {
+                    // is the dir empty, then keep it. So that packages can empty create dirs too.
+                    files_to_install
+                        .push(path.strip_prefix(&system_dir_path).unwrap().to_path_buf());
+                }
+            }
+            Err(e) => {
+                eprintln!("EROR something whent wrong while globing : {:?}", e);
+                panic!();
+            }
+        }
+    }
+
+    for file in files_to_install.iter() {
+        println!("path : {}", file.display());
     }
 }
 
 fn build_src_package(src: &str, output_dir: &Option<String>) {
     println!("Building package from {}", src);
 
-    let src_parent = std::path::Path::new(src).parent().unwrap().to_str().unwrap();
-    let src_file_name = std::path::Path::new(src).file_name().unwrap().to_str().unwrap();
+    let src_parent = std::path::Path::new(src)
+        .parent()
+        .unwrap()
+        .to_str()
+        .unwrap();
+    let src_file_name = std::path::Path::new(src)
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap();
 
     let output = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!(
-            "cd {} && tar -xf {}",
-            src_parent, src_file_name
-        ))
+        .arg(format!("cd {} && tar -xf {}", src_parent, src_file_name))
         .output()
         .expect("failed to execute process");
     use std::io::Write;
@@ -157,10 +240,7 @@ fn build_src_package(src: &str, output_dir: &Option<String>) {
 
     let output = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!(
-            "rm -dr {}",
-            src,
-        ))
+        .arg(format!("rm -dr {}", src,))
         .output()
         .expect("failed to execute process");
     std::io::stderr().write_all(&output.stderr);
@@ -196,7 +276,10 @@ fn build_src_package(src: &str, output_dir: &Option<String>) {
 }
 
 fn package_binary_package(srcfolder: &Path, output_name: &str) {
-    println!("Contructing binary package from {}", srcfolder.to_str().unwrap());
+    println!(
+        "Contructing binary package from {}",
+        srcfolder.to_str().unwrap()
+    );
     let src_name = srcfolder.file_name().unwrap().to_str().unwrap();
     let src_path = srcfolder.parent().unwrap().to_str().unwrap();
 
