@@ -22,6 +22,7 @@ enum SubCommand {
     Package(Package),
     Build(Build),
     Install(Install),
+    Remove(Remove),
 }
 
 /*
@@ -61,6 +62,16 @@ struct Install {
     /// SPS Binary Package to install
     #[clap()]
     pkg: String,
+}
+
+/*
+Remove a binary package
+ */
+#[derive(Clap)]
+struct Remove {
+    /// SPS Binary Package to remove, you should just enter the bit before the .sbp.tar.xz
+    #[clap()]
+    pkg_name: String,
 }
 
 use std::path::Path;
@@ -113,8 +124,51 @@ fn main() {
         }
         SubCommand::Install(b) => {
             install_bin_pkg(&b.pkg);
+        },
+        SubCommand::Remove(b) => {
+            remove_bin_pkg(&b.pkg_name);
         }
     }
+}
+
+fn remove_bin_pkg(pkg: &str) {
+    let spu_install_dir = match std::env::var("SPU_INSTALL_DIR") {
+        Ok(val) => val,
+        Err(e) => "/".to_owned(),
+    };
+
+    std::fs::create_dir_all(format!("{}/var/db/spu", &spu_install_dir)).unwrap();
+
+    let db_file_string = format!("{}/var/db/spu/{}", &spu_install_dir, &pkg);
+
+    let db_file = std::path::Path::new(&db_file_string);
+    if !db_file.exists() {
+        eprintln!("{} not installed.", &pkg);
+        return;
+    }
+    {
+    let db_file = std::fs::File::open(db_file).unwrap();
+
+    use std::io::BufRead;
+
+    for line in std::io::BufReader::new(db_file).lines() {
+        if line.is_err() {
+            continue;
+        }
+        let line = line.unwrap();
+        if line.len() <= 0 {
+            continue;
+        }
+        println!("removing {} ...", &line);
+        let file_path = std::path::PathBuf::from(format!("{}/{}", &spu_install_dir, &line));
+        if file_path.is_dir() {
+            std::fs::remove_dir_all(&file_path).unwrap();
+        } else if file_path.is_file() {
+            std::fs::remove_file(&file_path).unwrap();
+        }
+    }
+    }
+    std::fs::remove_file(&db_file).unwrap();
 }
 
 fn install_bin_pkg(pkg: &str) {
@@ -151,8 +205,6 @@ fn install_bin_pkg(pkg: &str) {
 
     let mut files_to_install = Vec::new();
 
-    println!("{}", pkg_path.to_str().unwrap());
-
     let system_dir_string = format!("{}/system", pkg_path.to_str().unwrap());
     let system_dir_path = std::path::Path::new(&system_dir_string);
 
@@ -175,9 +227,45 @@ fn install_bin_pkg(pkg: &str) {
         }
     }
 
+    let spu_install_dir = match std::env::var("SPU_INSTALL_DIR") {
+        Ok(val) => val,
+        Err(e) => "/".to_owned(),
+    };
+
+    let mut installed_files = Vec::new();
+
     for file in files_to_install.iter() {
-        println!("path : {}", file.display());
+        let copy_to = format!("{}/{}", &spu_install_dir, file.to_str().unwrap());
+        if !std::path::Path::new(&copy_to).exists() {
+            installed_files.push(file.to_str().unwrap());
+            let result = std::fs::copy(format!("{}/{}",&system_dir_string, file.to_str().unwrap()), &copy_to);
+            if result.is_err(){
+                eprintln! ("Failed to install {}, do you have permission?", copy_to);
+            }
+        } else {
+            println!("skipping path : {}/{}", &spu_install_dir, file.display());
+            //TODO Do package collision check and ask about override
+        }
     }
+
+    if installed_files.len() <= 0 {
+        println!("Nothing was installed.");
+        return;
+    }
+
+    std::fs::create_dir_all(format!("{}/var/db/spu", &spu_install_dir)).unwrap();
+
+    let db_file_string = format!("{}/var/db/spu/{}", &spu_install_dir, pkg_path.file_name().unwrap().to_str()
+                                 .unwrap().to_owned().replace(".sbp", ""));
+
+    let mut db_file = std::fs::File::create(&db_file_string).unwrap();
+
+    for file in installed_files.iter() {
+        db_file.write((*file).as_bytes());
+        db_file.write("\n".as_bytes());
+    }
+
+    db_file.flush();
 }
 
 fn build_src_package(src: &str, output_dir: &Option<String>) {
