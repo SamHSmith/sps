@@ -437,7 +437,6 @@ fn build_src_package(src: &str, output_dir: &Option<String>) {
     let systemdir = format!("{}/system", &newdir);
     std::fs::create_dir(&systemdir).expect(&format!("Failed to create directory {}", &systemdir));
 
-    println!("{}", format!("{}/config.toml", src));
     let config_string = std::fs::read_to_string(format!("{}/config.toml", src)).unwrap();
     let config : BuildConfig = toml::from_str(&config_string).unwrap();
 
