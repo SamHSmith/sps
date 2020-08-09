@@ -1,4 +1,0 @@
-
--- spu --
-build .sbp packages
-install .sbp packages to SPU_INSTALL_DIR
