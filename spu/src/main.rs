@@ -366,8 +366,7 @@ fn install_bin_pkg(pkg: &str) -> Option<Vec<String>> {
     db_file.flush().unwrap();
 
     for path in files_to_install.iter() {
-        db.insert(path.to_str().unwrap().to_owned(), std::path::Path::new(&db_fil
-                                                                          e_string).file_name().unwrap().to_str().unwrap().to_owned());
+        db.insert(path.to_str().unwrap().to_owned(), std::path::Path::new(&db_file_string).file_name().unwrap().to_str().unwrap().to_owned());
     }
     close_hash_table_data_base(filedb, &db);
 
@@ -527,3 +526,4 @@ fn package_binary_package(srcfolder: &Path, output_name: &str) {
         assert_eq!(0, output.stderr.len());
     }
 }
+
