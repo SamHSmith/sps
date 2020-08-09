@@ -160,13 +160,13 @@ fn remove_bin_pkg(pkg: &str) {
 
     
 
-    let filedb_path = std::path::PathBuf::from(format!("{}/var/db/spu/filedb", &spu_install_dir));
+    let filedb_path = std::path::PathBuf::from(format!("{}/usr/spu/filedb", &spu_install_dir));
     let mut filedb = std::fs::OpenOptions::new().read(true).write(true).open(filedb_path).unwrap();
     let mut db: std::collections::HashMap<String, String> =open_hash_table_data_base(&mut filedb);
 
-    std::fs::create_dir_all(format!("{}/var/db/spu/pkgs", &spu_install_dir)).unwrap();
+    std::fs::create_dir_all(format!("{}/usr/spu/pkgs", &spu_install_dir)).unwrap();
 
-    let db_file_string = format!("{}/var/db/spu/pkgs/{}", &spu_install_dir, &pkg);
+    let db_file_string = format!("{}/usr/spu/pkgs/{}", &spu_install_dir, &pkg);
 
     let db_file = std::path::Path::new(&db_file_string);
     if !db_file.exists() {
@@ -284,11 +284,11 @@ fn install_bin_pkg(pkg: &str) -> Option<Vec<String>> {
         Err(_) => "/".to_owned(),
     };
 
-    std::fs::create_dir_all(format!("{}/var/db/spu/", &spu_install_dir)).unwrap();
+    std::fs::create_dir_all(format!("{}/usr/spu/", &spu_install_dir)).unwrap();
 
     let mut db: std::collections::HashMap<String, String>;
 
-    let filedb_path = std::path::PathBuf::from(format!("{}/var/db/spu/filedb", &spu_install_dir));
+    let filedb_path = std::path::PathBuf::from(format!("{}/usr/spu/filedb", &spu_install_dir));
     let mut filedb = if !filedb_path.exists() {
         db = std::collections::HashMap::<String, String>::new();
         let file = std::fs::File::create(&filedb_path).unwrap();
@@ -338,7 +338,7 @@ fn install_bin_pkg(pkg: &str) -> Option<Vec<String>> {
         return None;
     }
 
-    std::fs::create_dir_all(format!("{}/var/db/spu/pkgs", &spu_install_dir)).unwrap();
+    std::fs::create_dir_all(format!("{}/usr/spu/pkgs", &spu_install_dir)).unwrap();
 
     let pkg_id =pkg_path
         .file_name()
@@ -351,7 +351,7 @@ fn install_bin_pkg(pkg: &str) -> Option<Vec<String>> {
     println!("Installing {}...", &pkg_id);
 
     let db_file_string = format!(
-        "{}/var/db/spu/pkgs/{}",
+        "{}/usr/spu/pkgs/{}",
         &spu_install_dir,
         &pkg_id,
     );
@@ -366,7 +366,8 @@ fn install_bin_pkg(pkg: &str) -> Option<Vec<String>> {
     db_file.flush().unwrap();
 
     for path in files_to_install.iter() {
-        db.insert(path.to_str().unwrap().to_owned(), std::path::Path::new(&db_file_string).file_name().unwrap().to_str().unwrap().to_owned());
+        db.insert(path.to_str().unwrap().to_owned(), std::path::Path::new(&db_fil
+                                                                          e_string).file_name().unwrap().to_str().unwrap().to_owned());
     }
     close_hash_table_data_base(filedb, &db);
 
