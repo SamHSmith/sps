@@ -1,0 +1,3 @@
+[submodule "testing/dte-sps"]
+	path = testing/dte-sps
+	url = https://github.com/SamHSmith/dte-sps.git

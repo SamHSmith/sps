@@ -1,0 +1,17 @@
+[package]
+name = "sps"
+version = "0.1.0"
+authors = ["Sam Smith <sam.henning.smith@protonmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = "3.0.0-beta.1"
+fs2 = "0.4.3"
+bincode = "1.3.1"
+toml = "0.5.6"
+serde_derive = "1.0.114"
+serde = "1.0.114"
+semver = "0.10.0"
+uuid = { version = "0.8.1", features = ["v4"] }
