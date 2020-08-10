@@ -136,6 +136,13 @@ fn main() {
                 enums: enums,
             };
             println!("{:?}", configdata);
+
+let mut dest_path = a.path_to_repo.clone();
+dest_path.push(&metadata.name);
+dest_path.push(&format!("{}", metadata.version.major));
+dest_path.push(&format!("{}", metadata.version));
+println!("{:?}", dest_path);
+
         }
         SubCommand::New(n) => {
             if n.path_to_repo.exists() {
@@ -218,3 +225,4 @@ fn ipfs_key_rm(key_name: &str) {
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
 }
+
