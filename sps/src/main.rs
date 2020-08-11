@@ -208,8 +208,21 @@ fn main() {
                     .collect()
             };
 
-            for b in build_ops.iter() {
+let copy_options = { let mut copy_options = fs_extra::dir::CopyOptions::new();
+copy_options.copy_inside = true; // Equivilant to cp -r
+copy_options };
+
+            for (index, b) in build_ops.iter().enumerate() {
                 println!("{:?}", b);
+                
+let mut out_path = dest_path.clone();
+out_path.push(format!("{}", index));
+create_dir_all(&out_path).unwrap();
+fs_extra::dir::copy(&a.path_to_proj, &out_path, &copy_options).unwrap();
+
+//Remove dups
+{ out_path.push("meta.toml"); remove_file(&out_path); out_path.pop();}
+{ out_path.push("config.toml"); remove_file(&out_path); out_path.pop();}
             }
         }
         SubCommand::New(n) => {
@@ -293,3 +306,4 @@ fn ipfs_key_rm(key_name: &str) {
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
 }
+
