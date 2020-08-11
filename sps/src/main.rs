@@ -154,7 +154,7 @@ fn main() {
             copy(&proj_meta_path, &dest_meta_path).unwrap();
             copy(&proj_conf_path, &dest_conf_path).unwrap();
 
-            let build_ops: Vec<Vec<(String, String)>> = {
+            let build_ops: Vec<Vec<(String, String)>> = {//Will one day get extracted
                 let mut options: Vec<(String, Vec<String>)> = Vec::new();
                 for flag in configdata.flags.iter() {
                     options.push((
@@ -195,7 +195,8 @@ fn main() {
                     .map(|ao| {
                         ao.iter()
                             .enumerate()
-                            .map(|(i, v)| (options[i].0.clone(), options[i].1[*v].clone()))
+                            .map(|(i, v)| (options[i].0.clone(),
+                                            options[i].1[*v].clone()))
                             .collect()
                     })
                     .collect()
