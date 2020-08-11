@@ -264,6 +264,7 @@ fn main() {
                     f.flush();
                     out_path.pop();
                 }
+                tar_and_zstd_dir(&out_path);
             }
         }
         SubCommand::New(n) => {
@@ -324,6 +325,26 @@ address = \"{}\"
     }
 }
 
+fn tar_and_zstd_dir(dir_path: &std::path::Path) -> String {
+    let absolute_path = dir_path.canonicalize().unwrap();
+    let dir_name = absolute_path.to_str().unwrap();
+    let mut output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "bsdtar --format=pax -cf {}.tar {} && zstd --rm -f {}.tar && rm -dr {}",
+            dir_name, dir_name, dir_name, dir_name
+        ))
+        .output()
+        .expect("failed to execute process");
+    use std::io::Write;
+    std::io::stderr().write_all(&output.stderr).unwrap();
+    assert!(output.status.success());
+    if output.stdout.len() > 0 {
+        output.stdout.truncate(output.stdout.len() - 1);
+    }
+    String::from_utf8(output.stdout).unwrap()
+}
+
 fn ipfs_key_gen(key_name: &str) -> String {
     let mut output = std::process::Command::new("sh")
         .arg("-c")
@@ -333,7 +354,9 @@ fn ipfs_key_gen(key_name: &str) -> String {
     use std::io::Write;
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
-    output.stdout.truncate(output.stdout.len() - 1);
+    if output.stdout.len() > 0 {
+        output.stdout.truncate(output.stdout.len() - 1);
+    }
     String::from_utf8(output.stdout).unwrap()
 }
 
