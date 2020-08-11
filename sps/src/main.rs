@@ -160,7 +160,7 @@ fn main() {
                 for flag in configdata.flags.iter() {
                     options.push((
                         flag.to_string(),
-                        vec!["false".to_owned(), "true".to_owned()],
+                        vec!["".to_owned(), "1".to_owned()],
                     ));
                 }
 
@@ -208,9 +208,21 @@ fn main() {
                     .collect()
             };
 
+//create build file
+let mut proj_build_file_path = a.path_to_proj.clone();
+proj_build_file_path.push("sps_build.sh");
+let build_file_string = read_to_string(&proj_build_file_path)
+    .expect("Missing sps_build.sh file in project.");
+
 let copy_options = { let mut copy_options = fs_extra::dir::CopyOptions::new();
 copy_options.copy_inside = true; // Equivilant to cp -r
+copy_options.overwrite = true;
 copy_options };
+
+let open_options = { let mut open_options = OpenOptions::new();
+open_options.write(true).truncate(true);
+open_options };
+
 
             for (index, b) in build_ops.iter().enumerate() {
                 println!("{:?}", b);
@@ -223,6 +235,23 @@ fs_extra::dir::copy(&a.path_to_proj, &out_path, &copy_options).unwrap();
 //Remove dups
 { out_path.push("meta.toml"); remove_file(&out_path); out_path.pop();}
 { out_path.push("config.toml"); remove_file(&out_path); out_path.pop();}
+
+//write build file
+{
+out_path.push("sps_build.sh");
+let mut f = open_options.open(&out_path).unwrap();
+let mut f = std::io::BufWriter::new(f);
+use std::io::Write;
+f.write("# SPS configuration value. Automatically generated at packaging time.\n".as_bytes()).unwrap();
+for (key, val) in b {
+f.write(format!("SPS_CONFIG_{}={}\n", key, val).as_bytes()).unwrap();
+}
+f.write("\n".as_bytes()).unwrap();
+f.write(build_file_string.as_bytes()).unwrap();
+f.flush();
+out_path.pop();
+}
+
             }
         }
         SubCommand::New(n) => {
@@ -306,4 +335,5 @@ fn ipfs_key_rm(key_name: &str) {
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
 }
+
 
