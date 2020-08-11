@@ -1,2 +1,1 @@
-cd spu && cargo build && cd ..
-cd sps && cargo build && cd ..
+cd sps && cargo build --target=x86_64-unknown-linux-musl && cd ..
