@@ -154,7 +154,8 @@ fn main() {
             copy(&proj_meta_path, &dest_meta_path).unwrap();
             copy(&proj_conf_path, &dest_conf_path).unwrap();
 
-            let build_ops: Vec<Vec<(String, String)>> = {//Will one day get extracted
+            let build_ops: Vec<Vec<(String, String)>> = {
+                //Will one day get extracted
                 let mut options: Vec<(String, Vec<String>)> = Vec::new();
                 for flag in configdata.flags.iter() {
                     options.push((
@@ -172,6 +173,12 @@ fn main() {
                     option_counts.push(x.1.len());
                 }
 
+                for o in options.iter() {
+                    assert!(
+                        o.1.len() > 0,
+                        format!("Enum {} must have atleast one possible value.", &o.0)
+                    );
+                }
                 let mut current_option = vec![0; options.len()];
 
                 let mut all_options = Vec::new();
@@ -195,8 +202,7 @@ fn main() {
                     .map(|ao| {
                         ao.iter()
                             .enumerate()
-                            .map(|(i, v)| (options[i].0.clone(),
-                                            options[i].1[*v].clone()))
+                            .map(|(i, v)| (options[i].0.clone(), options[i].1[*v].clone()))
                             .collect()
                     })
                     .collect()
@@ -287,4 +293,3 @@ fn ipfs_key_rm(key_name: &str) {
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
 }
-
