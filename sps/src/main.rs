@@ -63,9 +63,9 @@ fn main() {
             assert!(a.path_to_repo.is_dir());
             use std::fs::*;
             use toml::Value;
-            let mut proj_meta = a.path_to_proj.clone();
-            proj_meta.push("meta.toml");
-            let proj_meta = read_to_string(&proj_meta)
+            let mut proj_meta_path = a.path_to_proj.clone();
+            proj_meta_path.push("meta.toml");
+            let proj_meta = read_to_string(&proj_meta_path)
                 .unwrap()
                 .parse::<Value>()
                 .unwrap();
@@ -80,9 +80,9 @@ fn main() {
             };
             println!("{:?}", metadata);
 
-            let mut proj_conf = a.path_to_proj.clone();
-            proj_conf.push("config.toml");
-            let proj_conf = read_to_string(&proj_conf)
+            let mut proj_conf_path = a.path_to_proj.clone();
+            proj_conf_path.push("config.toml");
+            let proj_conf = read_to_string(&proj_conf_path)
                 .unwrap()
                 .parse::<Value>()
                 .unwrap();
@@ -137,12 +137,73 @@ fn main() {
             };
             println!("{:?}", configdata);
 
-let mut dest_path = a.path_to_repo.clone();
-dest_path.push(&metadata.name);
-dest_path.push(&format!("{}", metadata.version.major));
-dest_path.push(&format!("{}", metadata.version));
-println!("{:?}", dest_path);
+            let mut dest_path = a.path_to_repo.clone();
+            dest_path.push(&metadata.name);
+            dest_path.push(&format!("{}", metadata.version.major));
+            dest_path.push(&format!("{}", metadata.version));
+            println!("{:?}", dest_path);
 
+            create_dir_all(&dest_path);
+            let mut dest_meta_path = dest_path.clone();
+            dest_meta_path.push("meta.toml");
+            let mut dest_conf_path = dest_path.clone();
+            dest_conf_path.push("config.toml");
+            let mut dest_index_path = dest_path.clone();
+            dest_index_path.push("index.toml");
+
+            copy(&proj_meta_path, &dest_meta_path).unwrap();
+            copy(&proj_conf_path, &dest_conf_path).unwrap();
+
+            let build_ops: Vec<Vec<(String, String)>> = {
+                let mut options: Vec<(String, Vec<String>)> = Vec::new();
+                for flag in configdata.flags.iter() {
+                    options.push((
+                        flag.to_string(),
+                        vec!["false".to_owned(), "true".to_owned()],
+                    ));
+                }
+
+                if configdata.archs.len() > 0 {
+                    options.push(("archs".to_owned(), configdata.archs.clone()));
+                }
+                options.extend_from_slice(&configdata.enums);
+                let mut option_counts = Vec::new();
+                for x in options.iter() {
+                    option_counts.push(x.1.len());
+                }
+
+                let mut current_option = vec![0; options.len()];
+
+                let mut all_options = Vec::new();
+                all_options.push(current_option.clone());
+                let mut digit = 0;
+                loop {
+                    if digit >= current_option.len() {
+                        break;
+                    }
+                    current_option[digit] += 1;
+                    if current_option[digit] >= option_counts[digit] {
+                        current_option[digit] = 0;
+                        digit += 1;
+                    } else {
+                        digit = 0;
+                        all_options.push(current_option.clone());
+                    }
+                }
+                all_options
+                    .iter()
+                    .map(|ao| {
+                        ao.iter()
+                            .enumerate()
+                            .map(|(i, v)| (options[i].0.clone(), options[i].1[*v].clone()))
+                            .collect()
+                    })
+                    .collect()
+            };
+
+            for b in build_ops.iter() {
+                println!("{:?}", b);
+            }
         }
         SubCommand::New(n) => {
             if n.path_to_repo.exists() {
