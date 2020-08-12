@@ -19,6 +19,7 @@ enum SubCommand {
     )]
     Add(Add),
     New(New),
+    Daemon(Daemon),
     Delete(Delete),
 }
 
@@ -33,7 +34,17 @@ struct New {
     /// Repository to create.
     #[clap()]
     path_to_repo: PathBuf,
+    #[clap(short, default_value = "16461")] // Ports 16386-16618 are uncontested
+    port : u16,
+    #[clap(short, default_value = "16462")]
+    gateway_port : u16
 }
+#[derive(Clap)]
+struct Daemon {
+    // Repository to start the daemon for.
+    path_to_repo: PathBuf
+}
+    
 #[derive(Clap)]
 struct Delete {
     // Repository to delete
@@ -267,6 +278,15 @@ fn main() {
                 tar_and_zstd_dir(&out_path);
             }
         }
+SubCommand::Daemon(d) => {
+let exit_status = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!("IPFS_PATH={}/ipfs ipfs daemon", d.path_to_repo.to_str().unwrap()))
+        .spawn()
+        .expect("failed to execute process")
+        .wait().unwrap();
+assert!(exit_status.success());
+}
         SubCommand::New(n) => {
             if n.path_to_repo.exists() {
                 assert!(false, "Big bad. It exists");
@@ -275,6 +295,19 @@ fn main() {
             use uuid::Uuid;
             let mut path = n.path_to_repo.clone();
             create_dir_all(&path).unwrap();
+
+let exit_status = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+"export IPFS_PATH={}/ipfs && ipfs init && 
+ipfs config Addresses.API /ip4/127.0.0.1/tcp/{} &&
+ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/{}",
+     n.path_to_repo.to_str().unwrap(), n.port, n.gateway_port))
+        .spawn()
+        .expect("failed to execute process")
+        .wait().unwrap();
+assert!(exit_status.success());
+
             path.push("repo.toml");
 
             let name = path
@@ -292,7 +325,7 @@ fn main() {
                     .to_simple()
                     .encode_lower(&mut Uuid::encode_buffer())
             );
-            let address = ipfs_key_gen(&key);
+            let address = ipfs_key_gen(&n.path_to_repo, &key);
             write(
                 &path,
                 &format!(
@@ -318,8 +351,8 @@ address = \"{}\"
             let repo = repo.parse::<Value>().unwrap(); // Return type Value::Table
             let key = repo["key"].as_str().unwrap();
             path.pop();
+            ipfs_key_rm(&d.path_to_repo, key);
             remove_dir_all(&path).unwrap();
-            ipfs_key_rm(key);
         }
         _ => (),
     }
@@ -327,12 +360,13 @@ address = \"{}\"
 
 fn tar_and_zstd_dir(dir_path: &std::path::Path) -> String {
     let absolute_path = dir_path.canonicalize().unwrap();
-    let dir_name = absolute_path.to_str().unwrap();
+    let dir_name = absolute_path.file_name().unwrap().to_str().unwrap();
     let mut output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "bsdtar --format=pax -cf {}.tar {} && zstd --rm -f {}.tar && rm -dr {}",
-            dir_name, dir_name, dir_name, dir_name
+  "cd {}/.. && bsdtar --format=pax -cf {}.tar {} && zstd --rm -f {}.tar && rm -dr {}",
+            absolute_path.to_str().unwrap(),
+                dir_name, dir_name, dir_name, dir_name
         ))
         .output()
         .expect("failed to execute process");
@@ -345,10 +379,11 @@ fn tar_and_zstd_dir(dir_path: &std::path::Path) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
-fn ipfs_key_gen(key_name: &str) -> String {
+fn ipfs_key_gen(repo_path : &std::path::Path, key_name: &str) -> String {
     let mut output = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!("ipfs key gen {}", key_name,))
+        .arg(format!("IPFS_PATH={}/ipfs ipfs key gen {}", repo_path.to_str().unwrap(),
+                key_name,))
         .output()
         .expect("failed to execute process");
     use std::io::Write;
@@ -360,13 +395,18 @@ fn ipfs_key_gen(key_name: &str) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
-fn ipfs_key_rm(key_name: &str) {
+fn ipfs_key_rm(repo_path: &std::path::Path, key_name: &str) {
     let mut output = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!("ipfs key rm {}", key_name,))
-        .output()
+        .arg(format!("IPFS_PATH={}/ipfs ipfs key rm {}", repo_path.to_str().unwrap(),
+                key_name,))
+        .output()    
         .expect("failed to execute process");
     use std::io::Write;
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
 }
+
+
+
+
