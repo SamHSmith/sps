@@ -232,9 +232,16 @@ fn main() {
 
             let open_options = {
                 let mut open_options = OpenOptions::new();
-                open_options.write(true).truncate(true);
+                open_options.create(true).write(true).truncate(true);
                 open_options
             };
+use std::io::Write;
+use std::io::BufWriter;
+
+let index_path = { let mut index_path = dest_path.clone();
+index_path.push("index"); index_path };
+let mut index_file = open_options.open(&index_path).unwrap();
+let mut index_file = BufWriter::new(index_file);
 
             for (index, b) in build_ops.iter().enumerate() {
                 println!("{:?}", b);
@@ -260,8 +267,8 @@ fn main() {
                 {
                     out_path.push("sps_build.sh");
                     let mut f = open_options.open(&out_path).unwrap();
-                    let mut f = std::io::BufWriter::new(f);
-                    use std::io::Write;
+                    let mut f = BufWriter::new(f);
+
                     f.write(
                         "# SPS configuration value. Automatically generated at packaging time.\n"
                             .as_bytes(),
@@ -277,6 +284,11 @@ fn main() {
                     out_path.pop();
                 }
                 tar_and_zstd_dir(&out_path);
+                out_path.pop();
+                out_path.push(format!("{}.tar.zst", index));
+                
+                let hash = ipfs_add_and_rm(&a.path_to_repo, &out_path);
+                index_file.write(format!("{} = \"{}\"\n", index, &hash).as_bytes()).unwrap();
             }
         }
 SubCommand::Daemon(d) => {
@@ -383,6 +395,23 @@ fn tar_and_zstd_dir(dir_path: &std::path::Path) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
+fn ipfs_add_and_rm(repo_path : &std::path::Path, item_path : &std::path::Path) -> String {
+    let mut output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!("IPFS_PATH={}/ipfs ipfs add -Q {} && rm {}",
+            repo_path.to_str().unwrap(), item_path.to_str().unwrap(),
+                    item_path.to_str().unwrap()))
+        .output()
+        .expect("failed to execute process");
+    use std::io::Write;
+    std::io::stderr().write_all(&output.stderr).unwrap();
+    assert!(output.status.success());
+    if output.stdout.len() > 0 {
+        output.stdout.truncate(output.stdout.len() - 1);
+    }
+    String::from_utf8(output.stdout).unwrap()
+}
+
 fn ipfs_key_gen(repo_path : &std::path::Path, key_name: &str) -> String {
     let mut output = std::process::Command::new("sh")
         .arg("-c")
@@ -410,6 +439,7 @@ fn ipfs_key_rm(repo_path: &std::path::Path, key_name: &str) {
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
 }
+
 
 
 
