@@ -149,6 +149,7 @@ fn main() {
             println!("{:?}", configdata);
 
             let mut dest_path = a.path_to_repo.clone();
+            dest_path.push(a.path_to_repo.file_name().unwrap().to_str().unwrap());
             dest_path.push(&metadata.name);
             dest_path.push(&format!("{}", metadata.version.major));
             dest_path.push(&format!("{}", metadata.version));
@@ -294,6 +295,7 @@ assert!(exit_status.success());
             use std::fs::*;
             use uuid::Uuid;
             let mut path = n.path_to_repo.clone();
+            path.push(n.path_to_repo.file_name().unwrap().to_str().unwrap());
             create_dir_all(&path).unwrap();
 
 let exit_status = std::process::Command::new("sh")
@@ -343,6 +345,7 @@ address = \"{}\"
             }
             use std::fs::*;
             let mut path = d.path_to_repo.clone();
+            path.push(d.path_to_repo.file_name().unwrap().to_str().unwrap());
             path.push("repo.toml");
 
             let repo = read_to_string(&path).unwrap();
@@ -350,6 +353,7 @@ address = \"{}\"
 
             let repo = repo.parse::<Value>().unwrap(); // Return type Value::Table
             let key = repo["key"].as_str().unwrap();
+            path.pop();
             path.pop();
             ipfs_key_rm(&d.path_to_repo, key);
             remove_dir_all(&path).unwrap();
