@@ -19,6 +19,7 @@ enum SubCommand {
     )]
     Add(Add),
     New(New),
+    Push(Push),
     Daemon(Daemon),
     Delete(Delete),
 }
@@ -38,13 +39,17 @@ struct New {
     port : u16,
     #[clap(short, default_value = "16462")]
     swarm_port : u16
+}
+#[derive(Clap)]
+struct Push {
+    // Repository to push
+    path_to_repo : PathBuf
 }               
 #[derive(Clap)]
 struct Daemon {
     // Repository to start the daemon for.
     path_to_repo: PathBuf
-}
-    
+}    
 #[derive(Clap)]
 struct Delete {
     // Repository to delete
@@ -63,6 +68,13 @@ struct ProjectConfig {
     flags: Vec<String>,
     archs: Vec<String>,
     enums: Vec<(String, Vec<String>)>,
+}
+
+#[derive(Debug)]
+struct RepoMetaData {
+name : String,
+key : String,
+address : String,
 }
 
 fn main() {
@@ -270,7 +282,7 @@ let mut index_file = BufWriter::new(index_file);
                     let mut f = BufWriter::new(f);
 
                     f.write(
-                        "# SPS configuration value. Automatically generated at packaging time.\n"
+                        "# SPS configuration values. Automatically generated at packaging time.\n"
                             .as_bytes(),
                     )
                     .unwrap();
@@ -284,6 +296,7 @@ let mut index_file = BufWriter::new(index_file);
                     out_path.pop();
                 }
                 tar_and_zstd_dir(&out_path);
+                remove_dir_all(&out_path).unwrap();
                 out_path.pop();
                 out_path.push(format!("{}.tar.zst", index));
                 
@@ -299,6 +312,40 @@ let exit_status = std::process::Command::new("sh")
         .expect("failed to execute process")
         .wait().unwrap();
 assert!(exit_status.success());
+}
+SubCommand::Push(p) => {
+let mut repo_index_path = p.path_to_repo.clone();
+let name = p.path_to_repo.file_name().unwrap().to_str().unwrap();
+repo_index_path.push(name);
+
+let meta_data = {
+use std::fs::*;
+            use toml::Value;
+            
+            repo_index_path.push("meta.toml");
+            let repo_meta = read_to_string(&repo_index_path)
+                .unwrap()
+                .parse::<Value>()
+                .unwrap();
+            let repo_meta = RepoMetaData {
+                name: repo_meta["name"].as_str().unwrap().to_string(),
+                key: repo_meta["key"].as_str().unwrap().to_string(),
+                address: repo_meta["address"].as_str().unwrap().to_string(),
+            };
+repo_index_path.pop();
+repo_meta
+};
+tar_and_zstd_dir(&repo_index_path);
+repo_index_path.pop();
+repo_index_path.push(format!("{}.tar.zst", meta_data.name));
+
+let hash = ipfs_add_and_rm(&p.path_to_repo, &repo_index_path);
+std::fs::remove_file(&repo_index_path);
+println!("here's the hash {}", hash);
+let pub_hash = ipfs_name_publish(&p.path_to_repo, &meta_data.key, &hash);
+
+println!("here's the published hash, {}. Here's the reference hash, {}.", &pub_hash,
+        &meta_data.address);
 }
         SubCommand::New(n) => {
             if n.path_to_repo.exists() {
@@ -374,25 +421,20 @@ address = \"{}\"
     }
 }
 
-fn tar_and_zstd_dir(dir_path: &std::path::Path) -> String {
+fn tar_and_zstd_dir(dir_path: &std::path::Path) {
     let absolute_path = dir_path.canonicalize().unwrap();
     let dir_name = absolute_path.file_name().unwrap().to_str().unwrap();
     let mut output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-  "cd {}/.. && bsdtar --format=pax -cf {}.tar {} && zstd --rm -f {}.tar && rm -dr {}",
+  "cd {}/.. && bsdtar --format=pax -cf {}.tar {} && zstd --rm -f {}.tar",
             absolute_path.to_str().unwrap(),
-                dir_name, dir_name, dir_name, dir_name
+                dir_name, dir_name, dir_name
         ))
-        .output()
+        .spawn()
         .expect("failed to execute process");
-    use std::io::Write;
-    std::io::stderr().write_all(&output.stderr).unwrap();
-    assert!(output.status.success());
-    if output.stdout.len() > 0 {
-        output.stdout.truncate(output.stdout.len() - 1);
-    }
-    String::from_utf8(output.stdout).unwrap()
+    let res = output.wait().unwrap();
+    assert!(res.success());
 }
 
 fn ipfs_add_and_rm(repo_path : &std::path::Path, item_path : &std::path::Path) -> String {
@@ -406,6 +448,22 @@ fn ipfs_add_and_rm(repo_path : &std::path::Path, item_path : &std::path::Path) -
     use std::io::Write;
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
+    if output.stdout.len() > 0 {
+        output.stdout.truncate(output.stdout.len() - 1);
+    }
+    String::from_utf8(output.stdout).unwrap()
+}
+
+fn ipfs_name_publish(repo_path : &std::path::Path, key_name: &str, hash: &str) -> String {
+    let mut output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!("IPFS_PATH={}/ipfs ipfs name publish -Q --key={} {}", repo_path.to_str().unwrap(),
+                key_name, hash))
+        .output()
+        .expect("failed to execute process");
+    use std::io::Write;
+    std::io::stderr().write_all(&output.stderr).unwrap();
+    assert!(output.status.success(), "Is the repo's local ipfs node daemon running?");
     if output.stdout.len() > 0 {
         output.stdout.truncate(output.stdout.len() - 1);
     }
@@ -439,6 +497,10 @@ fn ipfs_key_rm(repo_path: &std::path::Path, key_name: &str) {
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
 }
+
+
+
+
 
 
 
