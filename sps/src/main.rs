@@ -37,8 +37,8 @@ struct New {
     #[clap(short, default_value = "16461")] // Ports 16386-16618 are uncontested
     port : u16,
     #[clap(short, default_value = "16462")]
-    gateway_port : u16
-}
+    swarm_port : u16
+}               
 #[derive(Clap)]
 struct Daemon {
     // Repository to start the daemon for.
@@ -314,15 +314,15 @@ let exit_status = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
 "export IPFS_PATH={}/ipfs && ipfs init && 
-ipfs config Addresses.API /ip4/127.0.0.1/tcp/{} &&
-ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/{}",
-     n.path_to_repo.to_str().unwrap(), n.port, n.gateway_port))
+ipfs config --json Addresses '{{\"Swarm\":[\"/ip4/0.0.0.0/tcp/{}\",\"/ip6/::/tcp/{}\"],\"API\":\"/ip4/127.0.0.1/tcp/{}\"}}'",
+     n.path_to_repo.to_str().unwrap(), n.swarm_port, n.swarm_port,
+            n.port))
         .spawn()
         .expect("failed to execute process")
         .wait().unwrap();
 assert!(exit_status.success());
 
-            path.push("repo.toml");
+            path.push("meta.toml");
 
             let name = path
                 .parent()
@@ -358,7 +358,7 @@ address = \"{}\"
             use std::fs::*;
             let mut path = d.path_to_repo.clone();
             path.push(d.path_to_repo.file_name().unwrap().to_str().unwrap());
-            path.push("repo.toml");
+            path.push("meta.toml");
 
             let repo = read_to_string(&path).unwrap();
             use toml::Value;
@@ -439,6 +439,9 @@ fn ipfs_key_rm(repo_path: &std::path::Path, key_name: &str) {
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
 }
+
+
+
 
 
 
