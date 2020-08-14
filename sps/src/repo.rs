@@ -54,9 +54,9 @@ struct ProjectConfig {
     archs: Vec<String>,
     enums: Vec<(String, Vec<String>)>,
 }
-
-#[derive(Debug)]
-struct RepoMetaData {
+use serde_derive::{Deserialize, Serialize};
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RepoMetaData {
     name: String,
     key: String,
     address: String,
@@ -145,6 +145,7 @@ pub fn repository_cli(subcmd: Repository) {
 
             let mut dest_path = a.path_to_repo.clone();
             dest_path.push("index");
+            dest_path.push("pkgs");
             dest_path.push(&metadata.name);
             dest_path.push(&format!("{}", metadata.version.major));
             dest_path.push(&format!("{}", metadata.version));
@@ -314,21 +315,15 @@ pub fn repository_cli(subcmd: Repository) {
                 use toml::Value;
 
                 repo_index_path.push("meta.toml");
-                let repo_meta = read_to_string(&repo_index_path)
-                    .unwrap()
-                    .parse::<Value>()
-                    .unwrap();
-                let repo_meta = RepoMetaData {
-                    name: repo_meta["name"].as_str().unwrap().to_string(),
-                    key: repo_meta["key"].as_str().unwrap().to_string(),
-                    address: repo_meta["address"].as_str().unwrap().to_string(),
-                };
+                let repo_meta : RepoMetaData =
+           toml::from_str(&read_to_string(&repo_index_path).unwrap()).unwrap();
+
                 repo_index_path.pop();
                 repo_meta
             };
             tar_and_zstd_dir(&repo_index_path);
             repo_index_path.pop();
-            repo_index_path.push(format!("{}.tar.zst", meta_data.name));
+            repo_index_path.push(format!("{}.tar.zst", "index"));
 
             let hash = ipfs_add_and_rm(&p.path_to_repo, &repo_index_path);
             std::fs::remove_file(&repo_index_path);
@@ -366,6 +361,8 @@ ipfs config --json Addresses '{{\"Swarm\":[\"/ip4/0.0.0.0/tcp/{}\",\"/ip6/::/tcp
             path.push("meta.toml");
 
             let name = path
+                .parent()
+                .unwrap()
                 .parent()
                 .unwrap()
                 .file_name()
@@ -437,7 +434,7 @@ fn ipfs_add_and_rm(repo_path: &std::path::Path, item_path: &std::path::Path) -> 
     let mut output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "IPFS_PATH={}/ipfs ipfs add -Q {} && rm {}",
+            "IPFS_PATH={}/ipfs ipfs add --cid-version 1 -Q {} && rm {}",
             repo_path.to_str().unwrap(),
             item_path.to_str().unwrap(),
             item_path.to_str().unwrap()
@@ -457,7 +454,7 @@ fn ipfs_name_publish(repo_path: &std::path::Path, key_name: &str, hash: &str) ->
     let mut output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "IPFS_PATH={}/ipfs ipfs name publish -Q --key={} {}",
+            "IPFS_PATH={}/ipfs ipfs name publish --resolve=false -Q --key={} {}",
             repo_path.to_str().unwrap(),
             key_name,
             hash
@@ -509,4 +506,5 @@ fn ipfs_key_rm(repo_path: &std::path::Path, key_name: &str) {
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
 }
+
 
