@@ -10,13 +10,13 @@ pub enum Repository {
     Delete(Delete),
 }
 #[derive(Clap)]
-struct Add {
+pub struct Add {
     path_to_repo: PathBuf,
     #[clap(default_value = ".")]
     path_to_proj: PathBuf,
 }
 #[derive(Clap)]
-struct New {
+pub struct New {
     /// Repository to create.
     #[clap()]
     path_to_repo: PathBuf,
@@ -26,17 +26,17 @@ struct New {
     swarm_port: u16,
 }
 #[derive(Clap)]
-struct Push {
+pub struct Push {
     // Repository to push
     path_to_repo: PathBuf,
 }
 #[derive(Clap)]
-struct Daemon {
+pub struct Daemon {
     // Repository to start the daemon for.
     path_to_repo: PathBuf,
 }
 #[derive(Clap)]
-struct Delete {
+pub struct Delete {
     // Repository to delete
     #[clap()]
     path_to_repo: PathBuf,
@@ -312,7 +312,6 @@ pub fn repository_cli(subcmd: Repository) {
 
             let meta_data = {
                 use std::fs::*;
-                use toml::Value;
 
                 repo_index_path.push("meta.toml");
                 let repo_meta : RepoMetaData =
@@ -332,7 +331,7 @@ pub fn repository_cli(subcmd: Repository) {
             let pub_hash = ipfs_name_publish(&p.path_to_repo, &meta_data.key, &hash);
 
             println!(
-                "here's the published hash, {}. Here's the reference hash, {}.",
+                "here's the published hash, {} . Here's the reference hash, {} .",
                 &pub_hash, &meta_data.address
             );
         }

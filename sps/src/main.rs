@@ -12,7 +12,7 @@ struct Opts {
     #[clap(subcommand)]
     subcmd: SubCommand,
 }
-use std::path::PathBuf;
+
 
 #[derive(Clap)]
 enum SubCommand {
@@ -24,6 +24,7 @@ enum SubCommand {
     Add_Repo(Add_Repo),
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Clap)]
 struct Add_Repo {
     repo_hash: String,
@@ -44,12 +45,12 @@ fn main() {
                 PathBuf::from(format!("{}/usr/sps/repos", &root_path));
             create_dir_all(&current_path).unwrap();
             ipfs_get_and_uncompress(&current_path,
-                &format!("/ipns/{}", &a.repo_hash), &a.repo_hash);
+                &format!("/ipns/{}", &a.repo_hash), "new_repo.tar");
             
             let mut second_path = current_path.clone();
             second_path.push(&a.repo_hash);
-            current_path.push(&format!("{}.tar", &a.repo_hash));
-            rename(&second_path, &current_path).unwrap();
+            current_path.push(&format!("{}.tar", "new_repo"));
+            
             un_tar(&current_path);
             
             current_path.pop();
@@ -59,9 +60,15 @@ fn main() {
                 toml::from_str(&read_to_string(&current_path).unwrap()).unwrap();
             current_path.pop();
             
+            second_path.pop();
+            second_path.push(&a.repo_hash);
+            let new = !second_path.exists();
+            if !new { // delete the old index
+                remove_dir_all(&second_path).unwrap();
+            }
             rename(&current_path, &second_path).unwrap(); //index to hash
             
-            { use std::io::Write;
+            if new { use std::io::Write;
             const default_priority : usize = 10;
             current_path.pop(); current_path.push("priority");
             let mut priority_file = 
