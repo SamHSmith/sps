@@ -320,12 +320,12 @@ pub fn repository_cli(subcmd: Repository) {
                 repo_index_path.pop();
                 repo_meta
             };
-            tar_and_zstd_dir(&repo_index_path);
-            repo_index_path.pop();
-            repo_index_path.push(format!("{}.tar.zst", "index"));
+            //tar_and_zstd_dir(&repo_index_path);
+            //repo_index_path.pop();
+            //repo_index_path.push(format!("{}.tar.zst", "index"));
 
-            let hash = ipfs_add_and_rm(&p.path_to_repo, &repo_index_path);
-            std::fs::remove_file(&repo_index_path);
+            let hash = ipfs_add_recursive(&p.path_to_repo, &repo_index_path);
+            //std::fs::remove_file(&repo_index_path);
             
             println!("Publishing to ipfs...");
             let pub_hash = ipfs_name_publish(&p.path_to_repo, &meta_data.key, &hash);
@@ -448,7 +448,24 @@ fn ipfs_add_and_rm(repo_path: &std::path::Path, item_path: &std::path::Path) -> 
     }
     String::from_utf8(output.stdout).unwrap()
 }
-
+fn ipfs_add_recursive(repo_path: &std::path::Path, item_path: &std::path::Path) -> String {
+    let mut output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "IPFS_PATH={}/ipfs ipfs add --cid-version 1 -rQ {}",
+            repo_path.to_str().unwrap(),
+            item_path.to_str().unwrap(),
+        ))
+        .output()
+        .expect("failed to execute process");
+    use std::io::Write;
+    std::io::stderr().write_all(&output.stderr).unwrap();
+    assert!(output.status.success());
+    if output.stdout.len() > 0 {
+        output.stdout.truncate(output.stdout.len() - 1);
+    }
+    String::from_utf8(output.stdout).unwrap()
+}
 fn ipfs_name_publish(repo_path: &std::path::Path, key_name: &str, hash: &str) -> String {
     let mut output = std::process::Command::new("sh")
         .arg("-c")
@@ -505,5 +522,6 @@ fn ipfs_key_rm(repo_path: &std::path::Path, key_name: &str) {
     std::io::stderr().write_all(&output.stderr).unwrap();
     assert!(output.status.success());
 }
+
 
 

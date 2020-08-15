@@ -44,17 +44,17 @@ fn main() {
             let mut current_path =
                 PathBuf::from(format!("{}/usr/sps/repos", &root_path));
             create_dir_all(&current_path).unwrap();
-            ipfs_get_and_uncompress(&current_path,
-                &format!("/ipns/{}", &a.repo_hash), "new_repo.tar");
+            ipfs_get(&current_path,
+                &format!("/ipns/{}", &a.repo_hash), "new_repo");
             
             let mut second_path = current_path.clone();
             second_path.push(&a.repo_hash);
-            current_path.push(&format!("{}.tar", "new_repo"));
+            current_path.push("new_repo");
             
-            un_tar(&current_path);
+            //un_tar(&current_path);
             
-            current_path.pop();
-            current_path.push("index");
+            //current_path.pop();
+            //current_path.push("index");
             current_path.push("meta.toml");
             let repo_meta : RepoMetaData =
                 toml::from_str(&read_to_string(&current_path).unwrap()).unwrap();
@@ -94,6 +94,22 @@ let mut output = std::process::Command::new("sh")
     assert!(output.success());
 }
 
+fn ipfs_get(output_dir: &std::path::Path, ipfs_address: &str,
+        out_name: &str) {
+    let mut output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "cd {} && ipfs get -o {} {}",
+            output_dir.to_str().unwrap(),
+            out_name, ipfs_address,
+        ))
+        .spawn()
+        .expect("failed to execute process")
+        .wait().unwrap();
+    assert!(output.success(), "did you pass a valid ipfs address?
+            Or is there a file in the same directory by the same name as the hash?");
+}
+
 fn ipfs_get_and_uncompress(output_dir: &std::path::Path, ipfs_address: &str,
         out_name: &str) {
     let mut output = std::process::Command::new("sh")
@@ -109,6 +125,8 @@ fn ipfs_get_and_uncompress(output_dir: &std::path::Path, ipfs_address: &str,
     assert!(output.success(), "did you pass a valid ipfs address?
             Or is there a file in the same directory by the same name as the hash?");
 }
+
+
 
 
 
