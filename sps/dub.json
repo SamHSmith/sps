@@ -1,0 +1,9 @@
+{
+	"authors": [
+		"Sam H. Smith"
+	],
+	"copyright": "Copyright © 2020, Sam H. Smith",
+	"description": "Source/Binary package manager",
+	"license": "GPLv3",
+	"name": "sps"
+}
