@@ -1,3 +1,5 @@
+## Do not use this code. It is low quality and not polished. I would not publish this today without polishing it a lot more.
+
 # sps
 Some Package Manager
 
